@@ -1677,8 +1677,8 @@
         
         <div style="text-align: center; margin-bottom: 20px;">
             <div class="nexa-text-logo">
-                <h2 class="logo-text">[BRAND NAME]</h2>
-                <p class="slogan">Slogan, Text Prototype</p>
+                <h2 class="logo-text">NEEXA</h2>
+                <p class="slogan">Secure, your Future</p>
             </div>
         </div>
 
@@ -2827,6 +2827,11 @@
 
         // Cek Token di URL
         const tokenFromURL = urlParams.get('token');
+
+        // --- PENTING: TAMBAHKAN INI UNTUK MENYEMBUNYIKAN LAYER 5 (Perkenalan) ---
+        // Asumsi: UI.layer5 adalah variabel yang menampung elemen Layer 5
+        if(UI.layer5) UI.layer5.classList.add('hidden'); 
+        // -----------------------------------------------------------------------
         
         // FIX: Pastikan Layer Kuis (6) dan Layer Review (7) SEMBUNYI dulu
         UI.accessContent.classList.add('hidden');
