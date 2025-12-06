@@ -875,9 +875,14 @@
 
             setMessage(UI.msg1, "Memverifikasi data...");
 
-            // Kita kirim API Key kosong dulu jika belum punya, atau ambil dari backend sebelumnya
-            // Idealnya API Key ditaruh di konstanta atas jika statis untuk frontend ini
-            const payload = { apiKey: API_KEY, nama, email, phone, product };
+            // 💡 KOREKSI: Mengganti kunci 'nama' dengan 'name'
+            const payload = { 
+                apiKey: API_KEY, 
+                name: nama, // <-- Kunci ini harus 'name' agar dibaca oleh kode.gs
+                email, 
+                phone, 
+                product 
+            };
 
             // REVISI: Menggunakan apiCall
             apiCall('verifyData', payload).then(response => {
@@ -926,9 +931,9 @@
             if (token && targetFile) {
                 setMessage(UI.msg3, `Mengalihkan ke halaman ${targetFile.replace('.html', '')}...`, true);
                 
-                // REVISI: Redirect standar HTML (bukan lewat backend GAS)
-                // Kita asumsikan file Quiz.html ada di folder yang sama di Netlify
-                const redirectUrl = `${targetFile}?token=${encodeURIComponent(token)}&product=${encodeURIComponent(USER_DATA.product)}`;
+                // --- KOREKSI KRITIS: Tambahkan 'name' ke URL redirect ---
+                // Asumsi USER_DATA memiliki properti 'name' dari payload verifikasi.
+                const redirectUrl = `${targetFile}?token=${encodeURIComponent(token)}&product=${encodeURIComponent(USER_DATA.product)}&name=${encodeURIComponent(USER_DATA.name)}`;
                 
                 window.location.href = redirectUrl; 
             } else {
