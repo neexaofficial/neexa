@@ -1669,6 +1669,48 @@
             }
         }
 
+
+        /* ======================================================= */
+        /* FIX FINAL: FURIGANA PADA OPSI JAWABAN (REVIEW & SOAL) */
+        /* ======================================================= */
+
+        /* 1. Atur Jarak Baris pada Teks Opsi */
+        .option-label span, 
+        .option-label-review span {
+            display: inline-block !important; /* Penting agar line-height bekerja */
+            line-height: 2.8 !important;      /* Jarak baris diperbesar agar muat tumpukan */
+            padding-top: 5px;                 /* Ruang ekstra di atas */
+            padding-bottom: 5px;              /* Ruang ekstra di bawah */
+            vertical-align: middle;
+        }
+
+        /* 2. Reset Posisi Ruby di dalam Opsi */
+        .option-label ruby, 
+        .option-label-review ruby {
+            display: inline-flex !important;
+            flex-direction: column-reverse !important;
+            vertical-align: bottom !important;
+            margin: 0 1px !important;
+        }
+
+        /* 3. Atur Posisi Furigana (RT) agar tidak turun */
+        .option-label rt, 
+        .option-label-review rt {
+            display: block !important;
+            line-height: 1 !important;
+            font-size: 0.6em !important;
+            text-align: center;
+            margin-bottom: 0px !important; /* Jangan minus, biar tidak nabrak */
+            transform: translateY(0px) !important; /* Reset posisi */
+            color: #555;
+        }
+
+        /* 4. Pastikan Flexbox Opsi Rata Tengah */
+        .option-label, .option-label-review {
+            align-items: center !important; /* Rata tengah vertikal */
+        }
+
+
     </style>
     </head>
 
@@ -1677,8 +1719,8 @@
         
         <div style="text-align: center; margin-bottom: 20px;">
             <div class="nexa-text-logo">
-                <h2 class="logo-text">[BRAND NAME]</h2>
-                <p class="slogan">Slogan, Text Prototype</p>
+                <h2 class="logo-text">NEEXA</h2>
+                <p class="slogan">Secure, your Future</p>
             </div>
         </div>
 
@@ -1704,7 +1746,7 @@
           <div class="intro-card">
             <div class="l5-header-box">
                 <h3 class="l5-welcome-logo">✦ WELCOME ✦</h3>
-                <p>Brandname Prototype Brandname Prototype</p>
+                <p>Nihongo Electronic Exam Auditorium</p>
             </div>
 
             <h2 class="l5-hello">Hello <span id="welcomeUserName">[Nama Pengguna]</span></h2>
