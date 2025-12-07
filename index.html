@@ -412,12 +412,12 @@
     <div class="container">
         
         <div class="header-section hidden-on-layer2">
-            <h1 class="japanese-text">ようこそ、NEEXAへ！</h1>
-            <p class="subtitle">Nihongo Electronic Exam Auditorium</p>
+            <h1 class="japanese-text">ようこそ、[BRAND NAME]へ！</h1>
+            <p class="subtitle">Brandname Prototype Brandname Prototype</p>
             
             <div class="nexa-text-logo" id="nexaLogo"> 
-                <h2>NEEXA</h2>
-                <p class="slogan">Secure, your Future</p>
+                <h2>[BRAND NAME]</h2>
+                <p class="slogan">Slogan, Text Prototype</p>
             </div>
             
         </div>
@@ -479,11 +479,11 @@
                     border-radius: 10px;
                     line-height: 1.5;
                 ">
-                    <p><strong>Perhatian:</strong> Ketentuan berikut berlaku untuk seluruh pengguna sistem akses soal NEEXA System. Mohon dibaca dengan saksama sebelum melanjutkan.</p>
+                    <p><strong>Perhatian:</strong> Ketentuan berikut berlaku untuk seluruh pengguna sistem akses soal [BRAND NAME]. Mohon dibaca dengan saksama sebelum melanjutkan.</p>
                     <p><strong>Masa Berlaku Token:</strong> Setiap token memiliki masa berlaku tertentu dan tidak dapat diperpanjang setelah kedaluwarsa.</p>
-                    <p><strong>Batas Penggunaan Perangkat:</strong> Token hanya dapat digunakan pada maksimal dua perangkat. Mengganti browser atau aplikasi akan dihitung sebagai perangkat berbeda. Token yang diakses lebih dari dua perangkat akan terblokir otomatis, dan pihak NEEXA tidak bertanggung jawab.</p>
-                    <p><strong>Larangan dan Hak Cipta:</strong> Dilarang keras menyebarkan, menduplikasi, atau menggunakan materi soal NEEXA System untuk tujuan komersial tanpa izin tertulis dari pihak NEEXA. Pelanggaran terhadap ketentuan ini dapat dikenakan sanksi sesuai Undang-Undang Hak Cipta yang berlaku di Indonesia.</p>
-                    <p><strong>Kebijakan Privasi:</strong> Data pribadi Anda (Nama, Email, dan Nomor HP) digunakan semata-mata untuk proses autentikasi dan pencatatan hasil kuis. Data tersebut tidak akan disebarkan atau dibagikan kepada pihak mana pun di luar NEEXA.</p>
+                    <p><strong>Batas Penggunaan Perangkat:</strong> Token hanya dapat digunakan pada maksimal dua perangkat. Mengganti browser atau aplikasi akan dihitung sebagai perangkat berbeda. Token yang diakses lebih dari dua perangkat akan terblokir otomatis, dan pihak [BRAND NAME] tidak bertanggung jawab.</p>
+                    <p><strong>Larangan dan Hak Cipta:</strong> Dilarang keras menyebarkan, menduplikasi, atau menggunakan materi soal [BRAND NAME] untuk tujuan komersial tanpa izin tertulis dari pihak [BRAND NAME]. Pelanggaran terhadap ketentuan ini dapat dikenakan sanksi sesuai Undang-Undang Hak Cipta yang berlaku di Indonesia.</p>
+                    <p><strong>Kebijakan Privasi:</strong> Data pribadi Anda (Nama, Email, dan Nomor HP) digunakan semata-mata untuk proses autentikasi dan pencatatan hasil kuis. Data tersebut tidak akan disebarkan atau dibagikan kepada pihak mana pun di luar [BRAND NAME].</p>
                     <p style="font-weight: 600; margin-top: 15px;">Dengan menekan tombol checklist persetujuan dibawah ini, Anda menyatakan telah membaca, memahami, dan menyetujui seluruh ketentuan di atas.</p>
                 </div>
             </div>
@@ -509,8 +509,8 @@
             
             <div class="header-section layer3-header-content"> 
                 <div class="nexa-text-logo"> 
-                    <h2>NEEXA</h2>
-                    <p class="slogan">Secure, your Future</p>
+                    <h2>[BRAND NAME]</h2>
+                    <p class="slogan">Slogan, Text Prototype</p>
                 </div>
                 <h3 class="japanese-label">アクセス情報パネル</h3> 
                 <p class="english-label">Access Information Panel</p> 
@@ -739,34 +739,28 @@
                 resetFlowAndShowLayer1();
                 return;
             }
-    
-            const forceRenew = UI.forceRenew ? UI.forceRenew.checked : false;
-    
+            
+            const forceRenew = UI.forceRenew ? UI.forceRenew.checked : false; 
+
             const payload = {
                 apiKey: API_KEY,
+                nama: USER_DATA.nama, // <--- TAMBAHKAN BARIS INI! (Wajib)
                 email: USER_DATA.email,
                 phone: USER_DATA.phone,
                 product: USER_DATA.product,
-                syarat: true,
-                persetujuan: true,
+                syarat: true, 
+                persetujuan: true, 
                 forceRenew: forceRenew
             };
 
+            // REVISI: Menggunakan apiCall
             apiCall('createToken', payload).then(response => {
                 UI.btnAksesSoal.disabled = false;
-        
+                
                 if (response.success) {
                     const token = response.data.token;
                     const expired = response.data.expired;
-            
-                    // 1. Ambil accessFile dari respons server
-                    const accessFile = response.data.accessFile || 'Quiz.html';
-            
-                    // 2. SIMPAN DATA LOKAL KRITIS
-                    // Sekarang memanggil saveUserData dengan accessFile
-                    saveUserData(USER_DATA, accessFile); 
-                    // -----------------------------------------------------
-
+                    
                     setMessage(UI.msg3, "✅ " + response.message, true);
                     renderLayer3Content(USER_DATA.nama, USER_DATA.email, USER_DATA.phone, USER_DATA.product, token, expired);
                 } else {
@@ -875,14 +869,9 @@
 
             setMessage(UI.msg1, "Memverifikasi data...");
 
-            // 💡 KOREKSI: Mengganti kunci 'nama' dengan 'name'
-            const payload = { 
-                apiKey: API_KEY, 
-                name: nama, // <-- Kunci ini harus 'name' agar dibaca oleh kode.gs
-                email, 
-                phone, 
-                product 
-            };
+            // Kita kirim API Key kosong dulu jika belum punya, atau ambil dari backend sebelumnya
+            // Idealnya API Key ditaruh di konstanta atas jika statis untuk frontend ini
+            const payload = { apiKey: API_KEY, nama, email, phone, product };
 
             // REVISI: Menggunakan apiCall
             apiCall('verifyData', payload).then(response => {
@@ -931,9 +920,9 @@
             if (token && targetFile) {
                 setMessage(UI.msg3, `Mengalihkan ke halaman ${targetFile.replace('.html', '')}...`, true);
                 
-                // --- KOREKSI KRITIS: Tambahkan 'name' ke URL redirect ---
-                // Asumsi USER_DATA memiliki properti 'name' dari payload verifikasi.
-                const redirectUrl = `${targetFile}?token=${encodeURIComponent(token)}&product=${encodeURIComponent(USER_DATA.product)}&name=${encodeURIComponent(USER_DATA.name)}`;
+                // REVISI: Redirect standar HTML (bukan lewat backend GAS)
+                // Kita asumsikan file Quiz.html ada di folder yang sama di Netlify
+                const redirectUrl = `${targetFile}?token=${encodeURIComponent(token)}&product=${encodeURIComponent(USER_DATA.product)}`;
                 
                 window.location.href = redirectUrl; 
             } else {
