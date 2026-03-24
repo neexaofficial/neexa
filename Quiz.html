@@ -247,6 +247,18 @@
             border: 1px solid #e5e7eb; 
             line-height: 1.4;
             transition: all 0.2s;
+
+        /* --- FIX: STYLING UNTUK GAMBAR DI DALAM OPSI PILIHAN GANDA --- */
+        label img {
+            max-width: 100%;
+            max-height: 200px;
+            object-fit: contain;
+            display: block;
+            margin: 10px auto;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
         }
         label:hover { background: #f3f4f6; border-color: #5b7efc; }
         #questionList input[type="radio"]:checked + label { 
@@ -1669,7 +1681,6 @@
             }
         }
 
-
         /* ======================================================= */
         /* FIX FINAL: FURIGANA PADA OPSI JAWABAN (REVIEW & SOAL) */
         /* ======================================================= */
@@ -1678,7 +1689,7 @@
         .option-label span, 
         .option-label-review span {
             display: inline-block !important; /* Penting agar line-height bekerja */
-            line-height: 1.6 !important;      /* Jarak baris diperbesar agar muat tumpukan */
+            line-height: 1.8 !important;      /* Jarak baris diperbesar agar muat tumpukan */
             padding-top: 5px;                 /* Ruang ekstra di atas */
             padding-bottom: 5px;              /* Ruang ekstra di bawah */
             vertical-align: middle;
@@ -1710,6 +1721,22 @@
             align-items: center !important; /* Rata tengah vertikal */
         }
 
+        /* --- DESAIN KOTAK PEMBAHASAN JAWABAN --- */
+        .pembahasan-box {
+            background-color: #e8f0fe; 
+            border-left: 4px solid #5b7efc;
+            padding: 12px 15px; 
+            margin-top: 15px; 
+            border-radius: 4px;
+            font-size: 0.9em; 
+            color: #333;
+        }
+        .pembahasan-title { 
+            font-weight: 600; 
+            color: #1a73e8; 
+            margin-bottom: 5px; 
+            display: block; 
+        }
 
     </style>
     </head>
@@ -1872,6 +1899,10 @@
         timeLimit: 0,             
         timerInterval: null       
     };
+
+    // --- TAMBAHKAN INI (UNTUK AUDIO LIMIT) ---
+    let audioPlayCounts = {}; 
+    // ----------------------------------------
 
     // Laporan Skor & Review
     let finalScoreReport = {
@@ -2233,9 +2264,15 @@
         UI.l6ProgressBar.style.width = `${progressPercent}%`;
     }
 
+    // REVISI: TIMER GLOBAL (TIDAK RESET SAAT GANTI KATEGORI)
     function startQuizTimerLimit() {
-        if (quizState.timerInterval) clearInterval(quizState.timerInterval);
+        // Cek apakah timer sudah berjalan? Jika YA, jangan reset!
+        if (quizState.timerInterval) {
+            console.log("Timer global sudah berjalan, melanjutkan hitungan...");
+            return;
+        }
 
+        // Ambil waktu dari setting soal (biasanya dari kategori pertama)
         let timeInSeconds = quizState.timeLimit * 60;
 
         if (timeInSeconds <= 0) {
@@ -2247,17 +2284,22 @@
             const minutes = Math.floor(timeInSeconds / 60);
             let seconds = timeInSeconds % 60;
             seconds = seconds < 10 ? '0' + seconds : seconds;
+            
             UI.l6Timer.textContent = `Waktu Tersisa: ${minutes}:${seconds}`;
 
             if (timeInSeconds <= 0) {
                 clearInterval(quizState.timerInterval);
                 UI.l6Timer.textContent = "WAKTU HABIS!";
-                submitCategory(); // Force Submit
+                
+                // Paksa Submit saat waktu habis
+                alert("Waktu Habis! Jawaban akan dikirim otomatis.");
+                submitCategory(); 
             }
             timeInSeconds--;
         }
 
-        updateTimerDisplay(); 
+        updateTimerDisplay(); // Jalankan sekali di awal
+        // Simpan interval ID ke state agar bisa dicek nanti
         quizState.timerInterval = setInterval(updateTimerDisplay, 1000);
     }
 
@@ -2279,21 +2321,45 @@
         });
     }
 
-
-    function renderCurrentView() {
+function renderCurrentView() {
         try {
             const index = quizState.currentQuestionIndex;
             const q = quizState.questions[index];
             const qState = quizState.questionStates[q.id];
 
-            let mediaHtml = '';
+            let mediaHtml = ''; // Perhatikan penulisan variabel ini
+
+            // --- FIX: MULTI MEDIA (GAMBAR & AUDIO) ---
             if (q.mediaUrl) {
-                if (quizState.currentCategory === 'listening') {
-                    mediaHtml = `<audio controls style="width: 100%;"><source src="${q.mediaUrl}" type="audio/mpeg">Browser Anda tidak mendukung audio.</audio>`;
-                } else {
-                    mediaHtml = `<img src="${q.mediaUrl}" alt="Gambar Soal" style="max-width: 100%; height: auto; border-radius: 5px; margin-bottom: 15px;">`;
-                }
+                // Gunakan mediaHtml yang sama dengan yang dideklarasikan di atas
+                mediaHtml = '<div class="media-container" style="text-align: center; margin-bottom: 15px;">';
+                let mediaUrls = q.mediaUrl.split(/[,|]/); 
+        
+                mediaUrls.forEach(url => {
+                    let cleanUrl = url.trim();
+                    if (!cleanUrl) return;
+
+                    if (cleanUrl.match(/\.(mp3|wav|ogg|m4a)$/i) || cleanUrl.includes('drive.google.com/file/d/')) {
+                        // FIX: Tambahkan id="audio_${q.id}" agar bisa dikunci batas putarnya
+                        mediaHtml += `
+                            <audio id="audio_${q.id}" controls style="width: 100%; max-width: 400px; margin-top: 10px;">
+                                <source src="${cleanUrl}" type="audio/mpeg">
+                                Browser Anda tidak mendukung.
+                            </audio><br>
+                        `;
+                    } else if (cleanUrl.match(/\.(jpeg|jpg|gif|png|webp)$/i) || cleanUrl.includes('drive.google.com/uc?')) {
+                        mediaHtml += `
+                            <img src="${cleanUrl}" alt="Media" style="max-width: 100%; max-height: 250px; border-radius: 8px; margin-top: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"><br>
+                        `;
+                    } else {
+                        mediaHtml += `<a href="${cleanUrl}" target="_blank" style="color: #5b7efc;">Buka Media</a><br>`;
+                    }
+                });
+
+                mediaHtml += '</div>';
+                // (BARIS ERROR questionHTML += mediaHTML; SUDAH DIHAPUS)             
             }
+            // --- MODIFIKASI AUDIO (END) ---
 
             let questionNumberStyled = `<span class="q-number-display">${index + 1}</span>`;
             let processedText = convertFuriganaToRuby(q.questionText);
@@ -2309,7 +2375,6 @@
                 questionTextHtml = `<div class="passage-box">${passageContent}</div>` + questionTextHtml;
             }
 
-            // --- REVISI FINAL: MENGGUNAKAN ONCHANGE ---
             let optionsHtml = '<div class="options-container">';
             
             const optionsArray = OPTIONS_KEYS
@@ -2318,14 +2383,11 @@
 
             optionsArray.forEach((option) => { 
                 const displayValue = option.text.startsWith('http') 
-                    ? `<img src="${option.text}" alt="Pilihan ${option.key}" style="max-height: 80px;">` 
+                    ? `<img src="${option.text}" alt="Pilihan ${option.key}" style="max-height: 200px; max-width: 100%; border-radius: 5px;">` 
                     : convertFuriganaToRuby(option.text);
 
-                // Cek status checked dari memori
                 const isChecked = (qState.answer === option.key) ? 'checked' : '';
 
-                // PERUBAHAN: Ganti onclick="..." menjadi onchange="..."
-                // Ini JAUH lebih stabil daripada onclick
                 optionsHtml += `
                     <label class="option-label">
                         <input type="radio" 
@@ -2339,8 +2401,20 @@
             });
             optionsHtml += '</div>';
             
+            // Di sini mediaHtml yang benar (beserta audio/gambar) digabungkan
             UI.l6QuestionContent.innerHTML = questionTextHtml + mediaHtml + optionsHtml;
             
+            // --- LOGIKA LISTENER AUDIO (MODE QUIZ: BEBAS PUTAR) ---
+            if (q.mediaUrl && quizState.currentCategory === 'listening') {
+                const audioEl = document.getElementById(`audio_${q.id}`);
+                if (audioEl) {
+                    audioEl.addEventListener('play', () => {
+                        console.log(`Audio ${q.id} diputar (Mode Latihan).`);
+                    });
+                }
+            }
+            // ------------------------------------
+
             
             UI.l6BtnBack.disabled = (index === 0); 
 
@@ -2642,14 +2716,41 @@
                 console.log(`   ✅ STATUS: BENAR. Seharusnya muncul HIJAU.`);
             }
 
-            // ... (Kode Render Media & Teks sama seperti sebelumnya) ...
+
+            // --- LOGGING (MATA-MATA) ---
+            // Ini akan memberitahu kita kenapa warnanya tidak keluar
+            console.log(`Soal No ${index+1} (ID: ${q.id}):`);
+            console.log(`   - Jawaban User (Mentah): ${rawUser}`);
+            console.log(`   - Jawaban User (Final):  ${userAnswer}`);
+            console.log(`   - Kunci Jawaban:         ${correctAnswer}`);
+            
+            if (userAnswer === null) {
+                console.warn(`   ⚠️ PERINGATAN: User dianggap TIDAK MENJAWAB (Null). Warna Merah tidak akan muncul.`);
+            } else if (userAnswer !== correctAnswer) {
+                console.log(`   ✅ STATUS: SALAH. Seharusnya muncul MERAH.`);
+            } else {
+                console.log(`   ✅ STATUS: BENAR. Seharusnya muncul HIJAU.`);
+            }
+
+            // --- FIX KODE BARU: MULTI MEDIA UNTUK REVIEW ---
             let mediaHtml = '';
             if (q.mediaUrl) {
-                if (category === 'listening') { 
-                    mediaHtml = `<audio controls style="width: 100%; margin-top: 15px;"><source src="${q.mediaUrl}" type="audio/mpeg">Browser Anda tidak mendukung audio.</audio>`;
-                } else {
-                    mediaHtml = `<img src="${q.mediaUrl}" alt="Gambar Soal" style="max-width: 100%; height: auto; border-radius: 5px; margin-top: 15px;">`;
-                }
+                mediaHtml = '<div class="media-container" style="text-align: center; margin-top: 15px;">';
+                let mediaUrls = q.mediaUrl.split(/[,|]/); 
+                
+                mediaUrls.forEach(url => {
+                    let cleanUrl = url.trim();
+                    if (!cleanUrl) return;
+
+                    if (cleanUrl.match(/\.(mp3|wav|ogg|m4a)$/i) || cleanUrl.includes('drive.google.com/file/d/')) {
+                        mediaHtml += `<audio controls style="width: 100%; max-width: 400px; margin-top: 10px;"><source src="${cleanUrl}" type="audio/mpeg">Browser Anda tidak mendukung.</audio><br>`;
+                    } else if (cleanUrl.match(/\.(jpeg|jpg|gif|png|webp)$/i) || cleanUrl.includes('drive.google.com/uc?')) {
+                        mediaHtml += `<img src="${cleanUrl}" alt="Media" style="max-width: 100%; max-height: 250px; border-radius: 8px; margin-top: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"><br>`;
+                    } else {
+                        mediaHtml += `<a href="${cleanUrl}" target="_blank" style="color: #5b7efc;">Buka Media</a><br>`;
+                    }
+                });
+                mediaHtml += '</div>';
             }
 
             let passageHtml = '';
@@ -2684,8 +2785,9 @@
                         isChecked = 'checked';
                     }
 
+                    // FIX TYPO: Tanda backtick di akhir tag img sudah diperbaiki menjadi 1 saja
                     const displayValue = optionText.startsWith('http') 
-                        ? `<img src="${optionText}" alt="Pilihan ${key}" style="max-height: 80px;">` 
+                        ? `<img src="${optionText}" alt="Pilihan ${key}" style="max-height: 200px; max-width: 100%; border-radius: 5px;">` 
                         : convertFuriganaToRuby(optionText);
 
                     optionsHtml += `
@@ -2698,9 +2800,23 @@
             });
             optionsHtml += '</div>';
 
-            allQuestionsHtml += `<div class="review-question-container">${passageHtml}${questionTextHtml}${mediaHtml}${optionsHtml}</div>`;
-        });
+            // --- TAMBAHAN DARI KENZO: KOTAK PEMBAHASAN JAWABAN ---
+            let pembahasanHtml = '';
+            if (q.pembahasan && q.pembahasan.trim() !== "") {
+                pembahasanHtml = `
+                    <div class="pembahasan-box">
+                        <span class="pembahasan-title"><i class="fas fa-lightbulb"></i> Pembahasan:</span>
+                        ${q.pembahasan}
+                    </div>
+                `;
+            }
 
+            // PENGGABUNGAN AKHIR: Pastikan mediaHtml dan pembahasanHtml dimasukkan!
+            allQuestionsHtml += `<div class="review-question-container">${passageHtml}${questionTextHtml}${mediaHtml}${optionsHtml}${pembahasanHtml}</div>`;
+
+        }); // <--- PASTIKAN BARIS INI ADA! Ini adalah penutup loop questions.forEach
+
+        // Menampilkan semua soal yang sudah dirender ke layar
         UI.l6QuestionContent.innerHTML = allQuestionsHtml;
     }
 
