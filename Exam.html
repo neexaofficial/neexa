@@ -2970,81 +2970,95 @@ function renderCurrentView() {
     });
 
     // ====================================================================
-    // FITUR BARU: GENERATE PDF REVIEW SOAL (OLEH KENZO)
+    // FITUR BARU: GENERATE PDF REVIEW SOAL (VERSI PRESISI & WORD WATERMARK)
     // ====================================================================
     window.downloadReviewPDF = function(category, event) {
-        // 1. Ubah tombol jadi loading agar user tahu sistem sedang bekerja
+        // 1. Loading UI
         const btn = event.currentTarget;
         const originalText = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses PDF...';
         btn.disabled = true;
 
-        // 2. Ambil wadah soal dan Kloning (agar tampilan asli web tidak rusak)
+        // 2. Ambil wadah soal
         const element = document.getElementById('l6-question-content');
         const clonedElement = element.cloneNode(true);
         
-        // 3. Buang semua tag Audio dan Kotak Peringatan dari kloningan
+        // 3. Bersihkan Audio & Peringatan
         clonedElement.querySelectorAll('audio').forEach(audio => audio.remove());
         clonedElement.querySelectorAll('.fa-exclamation-triangle').forEach(icon => {
             if (icon.parentElement) icon.parentElement.remove();
         });
 
-        // 4. DESAIN HEADER PDF
+        // 4. DESAIN HEADER (Judul 100% Tengah, Logo Melayang Kanan)
         const headerHtml = `
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; padding-bottom: 15px; margin-bottom: 25px;">
-                <div style="text-align: left; flex-grow: 1;">
-                    <h1 style="margin: 0; font-size: 24px; text-transform: uppercase; font-weight: bold; color: #111;">
+            <div style="position: relative; width: 100%; border-bottom: 2px solid #333; padding-bottom: 15px; margin-bottom: 20px;">
+                <img src="https://image2url.com/r2/default/images/1771079933061-9d7ada48-a36e-42f9-b4f2-d1ae4d4bd197.png" 
+                     crossorigin="anonymous" 
+                     style="position: absolute; right: 0; top: 0; height: 45px; width: auto; z-index: 10;">
+                
+                <div style="text-align: center; width: 100%;">
+                    <h1 style="margin: 0; font-size: 22px; text-transform: uppercase; font-weight: bold; color: #111;">
                         ${currentProduct} - ${category.toUpperCase()}
                     </h1>
-                    <h3 style="margin: 5px 0 0 0; font-size: 16px; font-weight: normal; color: rgba(17, 17, 17, 0.75);">
+                    <h3 style="margin: 5px 0 0 0; font-size: 14px; font-weight: normal; color: #666;">
                         REVIEW EVALUASI & PEMBAHASAN
                     </h3>
                 </div>
-                <div style="width: 120px; text-align: right;">
-                    <img src="https://image2url.com/r2/default/images/1771079933061-9d7ada48-a36e-42f9-b4f2-d1ae4d4bd197.png" alt="Neexa Logo" style="max-width: 100%; height: auto;">
-                </div>
             </div>
         `;
 
-        // 5. DESAIN FOOTER PDF
-        const footerHtml = `
-            <div style="margin-top: 40px; padding-top: 15px; border-top: 1px solid #ddd; text-align: right; font-size: 12px; color: #777;">
-                <sup>&copy;</sup>2025 Neexa System | Secure, Your Future
-            </div>
-        `;
-
-        // 6. Gabungkan semua menjadi 1 halaman virtual
+        // 5. WADAH UTAMA KERTAS (Lebar dikunci 800px agar susunan rapi seperti di laptop)
         const finalContent = document.createElement('div');
+        finalContent.style.width = '800px';  
+        finalContent.style.padding = '10px 20px'; // Beri jarak bernapas
         finalContent.innerHTML = headerHtml;
         finalContent.appendChild(clonedElement);
-        finalContent.insertAdjacentHTML('beforeend', footerHtml);
 
-        // 7. Berikan instruksi CSS agar kertas PDF rapi (anti kepotong)
+        // 6. CSS TAMBAHAN AGAR RAPI (ANTI TERPOTONG)
         const style = document.createElement('style');
         style.innerHTML = `
+            * { font-family: 'Poppins', sans-serif !important; }
             .review-question-container { page-break-inside: avoid; margin-bottom: 30px; }
-            .options-container { page-break-inside: avoid; }
-            .pembahasan-box { page-break-inside: avoid; }
-            img { max-width: 100% !important; page-break-inside: avoid; }
+            .options-container { page-break-inside: avoid; margin-top: 10px; }
+            .pembahasan-box { page-break-inside: avoid; margin-top: 15px; background: #f0f8ff; padding: 15px; border-radius: 8px;}
+            img { max-width: 100% !important; max-height: 250px !important; object-fit: contain; }
+            h3.question-title { margin-bottom: 10px; font-size: 16px;}
         `;
         finalContent.appendChild(style);
 
-        // 8. Konfigurasi Robot pembuat PDF
+        // 7. KONFIGURASI MARGIN KERTAS (Margin bawah dibesarkan untuk tempat Footer)
         const opt = {
-            margin:       10, // Margin kertas 10mm
+            margin:       [15, 10, 25, 10], // Atas:15, Kanan:10, Bawah:25 (PENTING), Kiri:10
             filename:     `Review_${currentProduct}_${category}.pdf`,
             image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2, useCORS: true }, // scale 2 agar teks & gambar tajam
+            html2canvas:  { scale: 2, useCORS: true }, // useCORS wajib agar gambar luar bisa masuk
             jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
 
-        // 9. Eksekusi Download
-        html2pdf().set(opt).from(finalContent).save().then(() => {
-            // Kembalikan tombol seperti semula setelah selesai download
+        // 8. EKSEKUSI & SUNTIK FOOTER KE LUAR BATAS KONTEN (Ala Word)
+        html2pdf().set(opt).from(finalContent).toPdf().get('pdf').then(function(pdf) {
+            const totalPages = pdf.internal.getNumberOfPages();
+            
+            // Menggambar teks watermark di margin paling bawah pada setiap halaman
+            for (let i = 1; i <= totalPages; i++) {
+                pdf.setPage(i);
+                pdf.setFontSize(9);
+                pdf.setTextColor(130, 130, 130); // Warna abu-abu pudar
+                // Kordinat X=195 (Kanan), Y=287 (Ujung bawah luar dari area tulisan)
+                pdf.text('©2025 Neexa System | Secure, Your Future', 195, 287, { align: 'right' });
+            }
+        }).save().then(() => {
+            // Sukses! Kembalikan tombol
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }).catch(err => {
+            console.error("Gagal membuat PDF:", err);
+            alert("Gagal membuat PDF. Pastikan internetmu stabil agar gambar bisa termuat.");
             btn.innerHTML = originalText;
             btn.disabled = false;
         });
     }
+
 </script>
 </body>
 </html>
