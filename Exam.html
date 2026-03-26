@@ -7,6 +7,7 @@
     <title>NEXA System - Akses Konten Kuis</title>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
     
     <style>
@@ -2697,7 +2698,13 @@ function renderCurrentView() {
         if(UI.l6ProgressBar) UI.l6ProgressBar.parentElement.classList.add('hidden'); 
         if(UI.l6NavPanel) UI.l6NavPanel.classList.add('hidden'); 
         if(UI.l6QuestionNavButtons) UI.l6QuestionNavButtons.classList.add('hidden'); 
-        UI.l6Footer.innerHTML = `<button class="score-reload-btn" onclick="returnToScorePage()">Kembali ke Halaman Skor</button>`;
+        // --- FIX: TAMBAHAN TOMBOL DOWNLOAD PDF DI FOOTER REVIEW ---
+        UI.l6Footer.innerHTML = `
+            <button class="score-reload-btn" onclick="returnToScorePage()">Kembali</button>
+            <button class="score-reload-btn" style="background: #e67e22; margin-left: 10px;" onclick="downloadReviewPDF('${category}', event)">
+                <i class="fas fa-file-pdf"></i> Download PDF
+            </button>
+        `;
 
         let allQuestionsHtml = '';
         
@@ -2961,6 +2968,83 @@ function renderCurrentView() {
             });
         }
     });
+
+    // ====================================================================
+    // FITUR BARU: GENERATE PDF REVIEW SOAL (OLEH KENZO)
+    // ====================================================================
+    window.downloadReviewPDF = function(category, event) {
+        // 1. Ubah tombol jadi loading agar user tahu sistem sedang bekerja
+        const btn = event.currentTarget;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses PDF...';
+        btn.disabled = true;
+
+        // 2. Ambil wadah soal dan Kloning (agar tampilan asli web tidak rusak)
+        const element = document.getElementById('l6-question-content');
+        const clonedElement = element.cloneNode(true);
+        
+        // 3. Buang semua tag Audio dan Kotak Peringatan dari kloningan
+        clonedElement.querySelectorAll('audio').forEach(audio => audio.remove());
+        clonedElement.querySelectorAll('.fa-exclamation-triangle').forEach(icon => {
+            if (icon.parentElement) icon.parentElement.remove();
+        });
+
+        // 4. DESAIN HEADER PDF
+        const headerHtml = `
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; padding-bottom: 15px; margin-bottom: 25px;">
+                <div style="text-align: left; flex-grow: 1;">
+                    <h1 style="margin: 0; font-size: 24px; text-transform: uppercase; font-weight: bold; color: #111;">
+                        ${currentProduct} - ${category.toUpperCase()}
+                    </h1>
+                    <h3 style="margin: 5px 0 0 0; font-size: 16px; font-weight: normal; color: rgba(17, 17, 17, 0.75);">
+                        REVIEW EVALUASI & PEMBAHASAN
+                    </h3>
+                </div>
+                <div style="width: 120px; text-align: right;">
+                    <img src="https://image2url.com/r2/default/images/1771079933061-9d7ada48-a36e-42f9-b4f2-d1ae4d4bd197.png" alt="Neexa Logo" style="max-width: 100%; height: auto;">
+                </div>
+            </div>
+        `;
+
+        // 5. DESAIN FOOTER PDF
+        const footerHtml = `
+            <div style="margin-top: 40px; padding-top: 15px; border-top: 1px solid #ddd; text-align: right; font-size: 12px; color: #777;">
+                <sup>&copy;</sup>2025 Neexa System | Secure, Your Future
+            </div>
+        `;
+
+        // 6. Gabungkan semua menjadi 1 halaman virtual
+        const finalContent = document.createElement('div');
+        finalContent.innerHTML = headerHtml;
+        finalContent.appendChild(clonedElement);
+        finalContent.insertAdjacentHTML('beforeend', footerHtml);
+
+        // 7. Berikan instruksi CSS agar kertas PDF rapi (anti kepotong)
+        const style = document.createElement('style');
+        style.innerHTML = `
+            .review-question-container { page-break-inside: avoid; margin-bottom: 30px; }
+            .options-container { page-break-inside: avoid; }
+            .pembahasan-box { page-break-inside: avoid; }
+            img { max-width: 100% !important; page-break-inside: avoid; }
+        `;
+        finalContent.appendChild(style);
+
+        // 8. Konfigurasi Robot pembuat PDF
+        const opt = {
+            margin:       10, // Margin kertas 10mm
+            filename:     `Review_${currentProduct}_${category}.pdf`,
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, useCORS: true }, // scale 2 agar teks & gambar tajam
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        // 9. Eksekusi Download
+        html2pdf().set(opt).from(finalContent).save().then(() => {
+            // Kembalikan tombol seperti semula setelah selesai download
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        });
+    }
 </script>
 </body>
 </html>
