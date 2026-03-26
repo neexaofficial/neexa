@@ -2976,31 +2976,31 @@ function renderCurrentView() {
     });
 
     // ====================================================================
-    // FITUR: CETAK PDF REVIEW SOAL (NATIVE WINDOW.PRINT)
+    // FITUR: CETAK PDF REVIEW SOAL (VERSI "DIET KERTAS" - GRID 2x2)
     // ====================================================================
     window.downloadReviewPDF = function(category) {
-        // 1. Buat kontainer kertas virtual rahasia
-        const printContainer = document.createElement('div');
-        printContainer.id = 'print-container-khusus';
-
-        // 2. Kloning area soal yang sudah rapi
+        // 1. Kloning area soal
         const contentToPrint = document.getElementById('l6-question-content').cloneNode(true);
 
-        // 3. Bersihkan Audio & Peringatan dari kertas cetak
+        // 2. Bersihkan Audio & Peringatan
         contentToPrint.querySelectorAll('audio').forEach(el => el.remove());
         contentToPrint.querySelectorAll('.fa-exclamation-triangle').forEach(icon => {
             if (icon.parentElement) icon.parentElement.remove();
         });
 
-        // 4. Susun Header, Soal, dan Footer Kertas
+        // 3. Buat kontainer kertas virtual rahasia
+        const printContainer = document.createElement('div');
+        printContainer.id = 'print-container-khusus';
+
+        // 4. Susun Header, Soal, dan Footer Kertas (Ukurannya dirampingkan)
         printContainer.innerHTML = `
-            <div id="print-header" style="position: relative; width: 100%; border-bottom: 2px solid #333; padding-bottom: 15px; margin-bottom: 20px;">
-                <img src="https://image2url.com/r2/default/images/1771079933061-9d7ada48-a36e-42f9-b4f2-d1ae4d4bd197.png" crossorigin="anonymous" style="position: absolute; right: 0; top: 0; height: 45px; width: auto;">
+            <div id="print-header" style="position: relative; width: 100%; border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 15px;">
+                <img src="https://image2url.com/r2/default/images/1771079933061-9d7ada48-a36e-42f9-b4f2-d1ae4d4bd197.png" crossorigin="anonymous" style="position: absolute; right: 0; top: 0; height: 35px; width: auto;">
                 <div style="text-align: center; width: 100%;">
-                    <h1 style="margin: 0; font-size: 22px; text-transform: uppercase; font-weight: bold; color: #111;">
+                    <h1 style="margin: 0; font-size: 18px; text-transform: uppercase; font-weight: bold; color: #111;">
                         ${currentProduct} - ${category.toUpperCase()}
                     </h1>
-                    <h3 style="margin: 5px 0 0 0; font-size: 14px; font-weight: normal; color: #666;">
+                    <h3 style="margin: 2px 0 0 0; font-size: 12px; font-weight: normal; color: #666;">
                         REVIEW EVALUASI & PEMBAHASAN
                     </h3>
                 </div>
@@ -3013,43 +3013,92 @@ function renderCurrentView() {
             </div>
         `;
         
-        // Memasukkan kloningan soal ke dalam wadah kertas
         printContainer.querySelector('#print-body').appendChild(contentToPrint);
 
-        // 5. Tambahkan Instruksi CSS Khusus Cetak ke Browser
+        // 5. 🔥 SIHIR CSS "DIET KERTAS" (Grid 2x2 & Gambar Mini) 🔥
         const printStyle = document.createElement('style');
         printStyle.id = 'print-style-khusus';
         printStyle.innerHTML = `
             @media print {
-                /* Sembunyikan SEMUA elemen website asli */
+                /* Sembunyikan web asli, tampilkan kertas virtual */
                 body > *:not(#print-container-khusus) { display: none !important; }
-                
-                /* Tampilkan dan normalkan kontainer kertas virtual kita */
-                #print-container-khusus { display: block !important; width: 100%; color: #000; background: #fff; }
-
-                /* Hapus background warna warni website */
+                #print-container-khusus { display: block !important; width: 100%; color: #000; background: #fff; font-size: 11px !important; }
                 body, html { background: #fff !important; margin: 0; padding: 0; height: auto; }
 
-                /* Pagar Anti Terpotong */
-                .review-question-container { page-break-inside: avoid; margin-bottom: 25px; border-bottom: 1px solid #ddd; padding-bottom: 15px;}
-                .options-container { page-break-inside: avoid; margin-top: 10px; }
-                .pembahasan-box { page-break-inside: avoid; margin-top: 15px; background: #f9f9f9 !important; padding: 15px; border-radius: 8px;}
-                img { max-width: 100% !important; max-height: 250px !important; object-fit: contain; page-break-inside: avoid; }
+                /* ATURAN SOAL: Pagar anti-potong & lebih rapat */
+                .review-question-container { 
+                    page-break-inside: avoid; 
+                    margin-bottom: 15px !important; 
+                    border-bottom: 1px dashed #ccc; 
+                    padding-bottom: 12px !important;
+                }
+                h3.question-title { font-size: 13px !important; margin-bottom: 8px !important; }
                 
-                /* Atur Margin Kertas A4 (Lebih lega untuk footer) */
-                @page { margin: 15mm 15mm 20mm 15mm; }
+                /* GAMBAR SOAL UTAMA: Diperkecil maksimal tinggi 120px */
+                .review-question-container > img,
+                .review-question-container .question-text img { 
+                    max-height: 120px !important; 
+                    object-fit: contain; 
+                    display: block; 
+                    margin: 5px 0 !important; 
+                }
+
+                /* 🔥 OPSI JAWABAN: FORMASI GRID 2 KOLOM (Kiri & Kanan) 🔥 */
+                .options-container { 
+                    display: grid !important; 
+                    grid-template-columns: 1fr 1fr !important; /* Membagi jadi 2 kolom sama besar */
+                    gap: 8px !important; 
+                    margin-top: 5px !important; 
+                }
+                
+                /* KOTAK JAWABAN: Pertahankan Warna Hijau/Merah */
+                .options-container > div, .option-label {
+                    margin: 0 !important;
+                    padding: 5px 8px !important;
+                    font-size: 11px !important;
+                    border: 1px solid #ddd !important;
+                    border-radius: 4px !important;
+                    -webkit-print-color-adjust: exact !important; /* Paksa print warna background */
+                    print-color-adjust: exact !important;
+                    display: flex;
+                    align-items: center;
+                }
+
+                /* GAMBAR JAWABAN (A,B,C,D): Sangat mini tapi tajam (maks tinggi 60px) */
+                .options-container img { 
+                    max-height: 60px !important; 
+                    max-width: 100px !important; 
+                    object-fit: contain; 
+                    margin-left: 5px;
+                }
+
+                /* PEMBAHASAN: Dibuat lebih padat dan ringkas */
+                .pembahasan-box { 
+                    page-break-inside: avoid; 
+                    margin-top: 8px !important; 
+                    background: #f0f8ff !important; 
+                    padding: 8px !important; 
+                    font-size: 11px !important;
+                    border-left: 3px solid #3498db !important;
+                    border-radius: 4px !important;
+                    -webkit-print-color-adjust: exact !important; 
+                    print-color-adjust: exact !important;
+                }
+
+                /* MARGIN KERTAS: Kurangi margin agar muat lebih banyak */
+                @page { margin: 10mm 15mm 15mm 15mm; }
             }
         `;
 
-        // 6. Sembunyikan kertas ini di layar biasa, pasang ke body
+        // 6. Pasang dan Eksekusi
         printContainer.style.display = 'none';
         document.body.appendChild(printContainer);
         document.head.appendChild(printStyle);
 
-        // 7. 🔥 EKSEKUSI CETAK BAWAAN BROWSER 🔥
+        // Panggil layar Print bawaan
         window.print();
 
-        // 8. Hapus kertas virtual segera setelah layar cetak/PDF ditutup
+        // 7. Bersihkan setelah selesai
         setTimeout(() => {
             printContainer.remove();
             printStyle.remove();
