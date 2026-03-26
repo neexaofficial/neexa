@@ -2976,133 +2976,113 @@ function renderCurrentView() {
     });
 
     // ====================================================================
-    // FITUR: CETAK PDF REVIEW SOAL (VERSI "DIET KERTAS" - GRID 2x2)
+    // FITUR: CETAK PDF REVIEW SOAL (VERSI DIET KERTAS + LAYOUT SUPER)
     // ====================================================================
     window.downloadReviewPDF = function(category) {
-        // 1. Kloning area soal
-        const contentToPrint = document.getElementById('l6-question-content').cloneNode(true);
+        // 1. TRIK NAMA FILE: Simpan judul asli tab, lalu ubah sementara
+        const originalTitle = document.title;
+        document.title = `NEXA System - ${category.toUpperCase()} Review Quiz`;
 
-        // 2. Bersihkan Audio & Peringatan
+        // 2. Kloning area soal dan bersihkan
+        const contentToPrint = document.getElementById('l6-question-content').cloneNode(true);
         contentToPrint.querySelectorAll('audio').forEach(el => el.remove());
         contentToPrint.querySelectorAll('.fa-exclamation-triangle').forEach(icon => {
             if (icon.parentElement) icon.parentElement.remove();
         });
 
-        // 3. Buat kontainer kertas virtual rahasia
+        // 3. Buat Tanggal Hari Ini (WIB) untuk di pojok kiri bawah
+        const today = new Date();
+        const dateOptions = { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' };
+        const dateString = today.toLocaleDateString('id-ID', dateOptions) + ' WIB';
+
+        // 4. Buat kontainer kertas virtual
         const printContainer = document.createElement('div');
         printContainer.id = 'print-container-khusus';
 
-        // 4. Susun Header, Soal, dan Footer Kertas (Ukurannya dirampingkan)
+        // 5. Susun Isi Kertas (Sesuai Sketsa Gambarmu)
         printContainer.innerHTML = `
-            <div id="print-header" style="position: relative; width: 100%; border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 15px;">
-                <img src="https://image2url.com/r2/default/images/1771079933061-9d7ada48-a36e-42f9-b4f2-d1ae4d4bd197.png" crossorigin="anonymous" style="position: absolute; right: 0; top: 0; height: 35px; width: auto;">
-                <div style="text-align: center; width: 100%;">
-                    <h1 style="margin: 0; font-size: 18px; text-transform: uppercase; font-weight: bold; color: #111;">
-                        ${currentProduct} - ${category.toUpperCase()}
-                    </h1>
-                    <h3 style="margin: 2px 0 0 0; font-size: 12px; font-weight: normal; color: #666;">
-                        REVIEW EVALUASI & PEMBAHASAN
-                    </h3>
-                </div>
+            <img src="https://image2url.com/r2/default/images/1771079933061-9d7ada48-a36e-42f9-b4f2-d1ae4d4bd197.png" crossorigin="anonymous" style="position: fixed; top: 10mm; left: 15mm; height: 35px; width: auto; z-index: 1000;" alt="Logo Neexa">
+
+            <div style="position: fixed; top: 13mm; right: 15mm; font-size: 10px; color: #555; font-weight: bold; z-index: 1000;">
+                NEXA System - ${category.toUpperCase()}
+            </div>
+
+            <div style="position: fixed; bottom: 10mm; left: 15mm; font-size: 10px; color: #777; z-index: 1000;">
+                Dicetak pada: ${dateString}
+            </div>
+
+            <div style="position: fixed; bottom: 10mm; right: 15mm; font-size: 10px; color: #777; z-index: 1000;">
+                &copy;2025 Neexa System | Secure, Your Future
+            </div>
+
+            <div id="print-header" style="width: 100%; border-bottom: 2px solid #333; padding-bottom: 15px; margin-top: 30px; margin-bottom: 15px; text-align: center;">
+                <h1 style="margin: 0; font-size: 18px; text-transform: uppercase; font-weight: bold; color: #111;">
+                    ${currentProduct} - ${category.toUpperCase()}
+                </h1>
+                <h3 style="margin: 2px 0 0 0; font-size: 12px; font-weight: normal; color: #666;">
+                    REVIEW EVALUASI & PEMBAHASAN
+                </h3>
             </div>
             
             <div id="print-body"></div>
-            
-            <div id="print-footer" style="position: fixed; bottom: 0; right: 0; font-size: 10px; color: #777;">
-                &copy;2025 Neexa System | Secure, Your Future
-            </div>
         `;
         
         printContainer.querySelector('#print-body').appendChild(contentToPrint);
 
-        // 5. 🔥 SIHIR CSS "DIET KERTAS" (Grid 2x2 & Gambar Mini) 🔥
+        // 6. 🔥 SIHIR CSS PEMBUNUH URL & DIET KERTAS 🔥
         const printStyle = document.createElement('style');
         printStyle.id = 'print-style-khusus';
         printStyle.innerHTML = `
             @media print {
-                /* Sembunyikan web asli, tampilkan kertas virtual */
+                /* Sembunyikan web asli */
                 body > *:not(#print-container-khusus) { display: none !important; }
-                #print-container-khusus { display: block !important; width: 100%; color: #000; background: #fff; font-size: 11px !important; }
-                body, html { background: #fff !important; margin: 0; padding: 0; height: auto; }
+                
+                /* INI JURUS UNTUK MEMBUNUH URL BAWAAN BROWSER */
+                @page { margin: 0 !important; }
 
-                /* ATURAN SOAL: Pagar anti-potong & lebih rapat */
-                .review-question-container { 
-                    page-break-inside: avoid; 
-                    margin-bottom: 15px !important; 
-                    border-bottom: 1px dashed #ccc; 
-                    padding-bottom: 12px !important;
+                /* ATURAN DASAR KERTAS & MARGIN BUATAN */
+                body, html { background: #fff !important; margin: 0 !important; padding: 0 !important; }
+                #print-container-khusus { 
+                    display: block !important; width: 100%; color: #000; background: #fff; font-size: 11px !important; 
+                    padding: 25mm 15mm 20mm 15mm !important; /* Padding top dilebarkan agar teks tidak nabrak logo */
+                    box-sizing: border-box;
                 }
+
+                /* ATURAN SOAL & GRID (Sama Persis Seperti Versi "Diet Kertas" Milikmu) */
+                .review-question-container { page-break-inside: avoid; margin-bottom: 15px !important; border-bottom: 1px dashed #ccc; padding-bottom: 12px !important; }
                 h3.question-title { font-size: 13px !important; margin-bottom: 8px !important; }
+                .review-question-container > img, .review-question-container .question-text img { max-height: 120px !important; object-fit: contain; display: block; margin: 5px 0 !important; }
                 
-                /* GAMBAR SOAL UTAMA: Diperkecil maksimal tinggi 120px */
-                .review-question-container > img,
-                .review-question-container .question-text img { 
-                    max-height: 120px !important; 
-                    object-fit: contain; 
-                    display: block; 
-                    margin: 5px 0 !important; 
-                }
-
-                /* 🔥 OPSI JAWABAN: FORMASI GRID 2 KOLOM (Kiri & Kanan) 🔥 */
-                .options-container { 
-                    display: grid !important; 
-                    grid-template-columns: 1fr 1fr !important; /* Membagi jadi 2 kolom sama besar */
-                    gap: 8px !important; 
-                    margin-top: 5px !important; 
-                }
+                .options-container { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 8px !important; margin-top: 5px !important; }
+                .options-container > div, .option-label { margin: 0 !important; padding: 5px 8px !important; font-size: 11px !important; border: 1px solid #ddd !important; border-radius: 4px !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; display: flex; align-items: center; }
+                .options-container img { max-height: 60px !important; max-width: 100px !important; object-fit: contain; margin-left: 5px; }
                 
-                /* KOTAK JAWABAN: Pertahankan Warna Hijau/Merah */
-                .options-container > div, .option-label {
-                    margin: 0 !important;
-                    padding: 5px 8px !important;
-                    font-size: 11px !important;
-                    border: 1px solid #ddd !important;
-                    border-radius: 4px !important;
-                    -webkit-print-color-adjust: exact !important; /* Paksa print warna background */
-                    print-color-adjust: exact !important;
-                    display: flex;
-                    align-items: center;
-                }
-
-                /* GAMBAR JAWABAN (A,B,C,D): Sangat mini tapi tajam (maks tinggi 60px) */
-                .options-container img { 
-                    max-height: 60px !important; 
-                    max-width: 100px !important; 
-                    object-fit: contain; 
-                    margin-left: 5px;
-                }
-
-                /* PEMBAHASAN: Dibuat lebih padat dan ringkas */
-                .pembahasan-box { 
-                    page-break-inside: avoid; 
-                    margin-top: 8px !important; 
-                    background: #f0f8ff !important; 
-                    padding: 8px !important; 
-                    font-size: 11px !important;
-                    border-left: 3px solid #3498db !important;
-                    border-radius: 4px !important;
-                    -webkit-print-color-adjust: exact !important; 
-                    print-color-adjust: exact !important;
-                }
-
-                /* MARGIN KERTAS: Kurangi margin agar muat lebih banyak */
-                @page { margin: 10mm 15mm 15mm 15mm; }
+                .pembahasan-box { page-break-inside: avoid; margin-top: 8px !important; background: #f0f8ff !important; padding: 8px !important; font-size: 11px !important; border-left: 3px solid #3498db !important; border-radius: 4px !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             }
         `;
 
-        // 6. Pasang dan Eksekusi
         printContainer.style.display = 'none';
         document.body.appendChild(printContainer);
         document.head.appendChild(printStyle);
 
-        // Panggil layar Print bawaan
-        window.print();
+        // 7. 🔥 FUNGSI SAPU BERSIH (SANGAT AMAN) 🔥
+        const cleanupPrint = function() {
+            document.title = originalTitle; // Kembalikan nama tab asli
+            const container = document.getElementById('print-container-khusus');
+            const style = document.getElementById('print-style-khusus');
+            if (container) container.remove();
+            if (style) style.remove();
+            window.removeEventListener('afterprint', cleanupPrint);
+        };
 
-        // 7. Bersihkan setelah selesai
+        window.addEventListener('afterprint', cleanupPrint);
+
+        // 8. Tunda 0.5 detik agar Logo masuk, lalu Cetak!
         setTimeout(() => {
-            printContainer.remove();
-            printStyle.remove();
-        }, 1000);
+            window.print();
+            // Fallback: Jika setelah 3 detik fitur afterprint gagal jalan di browser tertentu, bersihkan paksa.
+            setTimeout(cleanupPrint, 3000); 
+        }, 500); 
     };
 
 </script>
