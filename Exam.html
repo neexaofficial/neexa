@@ -7,7 +7,6 @@
     <title>NEXA System - Akses Konten Kuis</title>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
     
     <style>
@@ -2698,12 +2697,19 @@ function renderCurrentView() {
         if(UI.l6ProgressBar) UI.l6ProgressBar.parentElement.classList.add('hidden'); 
         if(UI.l6NavPanel) UI.l6NavPanel.classList.add('hidden'); 
         if(UI.l6QuestionNavButtons) UI.l6QuestionNavButtons.classList.add('hidden'); 
-        // --- FIX: TAMBAHAN TOMBOL DOWNLOAD PDF DI FOOTER REVIEW ---
+        // --- FIX: TAMBAHAN TOMBOL DOWNLOAD PDF & TEKS PETUNJUK ---
         UI.l6Footer.innerHTML = `
-            <button class="score-reload-btn" onclick="returnToScorePage()">Kembali</button>
-            <button class="score-reload-btn" style="background: #e67e22; margin-left: 10px;" onclick="downloadReviewPDF('${category}', event)">
-                <i class="fas fa-file-pdf"></i> Download PDF
-            </button>
+            <div style="display: flex; flex-direction: column; width: 100%;">
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                    <button class="score-reload-btn" onclick="returnToScorePage()" style="margin-top: 0;">Kembali</button>
+                    <button class="score-reload-btn" style="background: #e67e22; margin-top: 0;" onclick="downloadReviewPDF('${category}')">
+                        <i class="fas fa-file-pdf"></i> Download
+                    </button>
+                </div>
+                <div style="text-align: right; margin-top: 10px; opacity: 0.75; font-size: 0.85rem; font-style: italic; color: #333;">
+                    (💡 Untuk mencetak halaman Preview Soal, Klik Download, lalu pilih opsi 'Simpan sebagai PDF' di layar Anda)
+                </div>
+            </div>
         `;
 
         let allQuestionsHtml = '';
@@ -2970,32 +2976,26 @@ function renderCurrentView() {
     });
 
     // ====================================================================
-    // FITUR BARU: GENERATE PDF REVIEW SOAL (VERSI PRESISI & WORD WATERMARK)
+    // FITUR: CETAK PDF REVIEW SOAL (NATIVE WINDOW.PRINT)
     // ====================================================================
-    window.downloadReviewPDF = function(category, event) {
-        // 1. Loading UI
-        const btn = event.currentTarget;
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses PDF...';
-        btn.disabled = true;
+    window.downloadReviewPDF = function(category) {
+        // 1. Buat kontainer kertas virtual rahasia
+        const printContainer = document.createElement('div');
+        printContainer.id = 'print-container-khusus';
 
-        // 2. Ambil wadah soal
-        const element = document.getElementById('l6-question-content');
-        const clonedElement = element.cloneNode(true);
-        
-        // 3. Bersihkan Audio & Peringatan
-        clonedElement.querySelectorAll('audio').forEach(audio => audio.remove());
-        clonedElement.querySelectorAll('.fa-exclamation-triangle').forEach(icon => {
+        // 2. Kloning area soal yang sudah rapi
+        const contentToPrint = document.getElementById('l6-question-content').cloneNode(true);
+
+        // 3. Bersihkan Audio & Peringatan dari kertas cetak
+        contentToPrint.querySelectorAll('audio').forEach(el => el.remove());
+        contentToPrint.querySelectorAll('.fa-exclamation-triangle').forEach(icon => {
             if (icon.parentElement) icon.parentElement.remove();
         });
 
-        // 4. DESAIN HEADER (Judul 100% Tengah, Logo Melayang Kanan)
-        const headerHtml = `
-            <div style="position: relative; width: 100%; border-bottom: 2px solid #333; padding-bottom: 15px; margin-bottom: 20px;">
-                <img src="https://image2url.com/r2/default/images/1771079933061-9d7ada48-a36e-42f9-b4f2-d1ae4d4bd197.png" 
-                     crossorigin="anonymous" 
-                     style="position: absolute; right: 0; top: 0; height: 45px; width: auto; z-index: 10;">
-                
+        // 4. Susun Header, Soal, dan Footer Kertas
+        printContainer.innerHTML = `
+            <div id="print-header" style="position: relative; width: 100%; border-bottom: 2px solid #333; padding-bottom: 15px; margin-bottom: 20px;">
+                <img src="https://image2url.com/r2/default/images/1771079933061-9d7ada48-a36e-42f9-b4f2-d1ae4d4bd197.png" crossorigin="anonymous" style="position: absolute; right: 0; top: 0; height: 45px; width: auto;">
                 <div style="text-align: center; width: 100%;">
                     <h1 style="margin: 0; font-size: 22px; text-transform: uppercase; font-weight: bold; color: #111;">
                         ${currentProduct} - ${category.toUpperCase()}
@@ -3005,59 +3005,56 @@ function renderCurrentView() {
                     </h3>
                 </div>
             </div>
-        `;
-
-        // 5. WADAH UTAMA KERTAS (Lebar dikunci 800px agar susunan rapi seperti di laptop)
-        const finalContent = document.createElement('div');
-        finalContent.style.width = '800px';  
-        finalContent.style.padding = '10px 20px'; // Beri jarak bernapas
-        finalContent.innerHTML = headerHtml;
-        finalContent.appendChild(clonedElement);
-
-        // 6. CSS TAMBAHAN AGAR RAPI (ANTI TERPOTONG)
-        const style = document.createElement('style');
-        style.innerHTML = `
-            * { font-family: 'Poppins', sans-serif !important; }
-            .review-question-container { page-break-inside: avoid; margin-bottom: 30px; }
-            .options-container { page-break-inside: avoid; margin-top: 10px; }
-            .pembahasan-box { page-break-inside: avoid; margin-top: 15px; background: #f0f8ff; padding: 15px; border-radius: 8px;}
-            img { max-width: 100% !important; max-height: 250px !important; object-fit: contain; }
-            h3.question-title { margin-bottom: 10px; font-size: 16px;}
-        `;
-        finalContent.appendChild(style);
-
-        // 7. KONFIGURASI MARGIN KERTAS (Margin bawah dibesarkan untuk tempat Footer)
-        const opt = {
-            margin:       [15, 10, 25, 10], // Atas:15, Kanan:10, Bawah:25 (PENTING), Kiri:10
-            filename:     `Review_${currentProduct}_${category}.pdf`,
-            image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2, useCORS: true }, // useCORS wajib agar gambar luar bisa masuk
-            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        };
-
-        // 8. EKSEKUSI & SUNTIK FOOTER KE LUAR BATAS KONTEN (Ala Word)
-        html2pdf().set(opt).from(finalContent).toPdf().get('pdf').then(function(pdf) {
-            const totalPages = pdf.internal.getNumberOfPages();
             
-            // Menggambar teks watermark di margin paling bawah pada setiap halaman
-            for (let i = 1; i <= totalPages; i++) {
-                pdf.setPage(i);
-                pdf.setFontSize(9);
-                pdf.setTextColor(130, 130, 130); // Warna abu-abu pudar
-                // Kordinat X=195 (Kanan), Y=287 (Ujung bawah luar dari area tulisan)
-                pdf.text('©2025 Neexa System | Secure, Your Future', 195, 287, { align: 'right' });
+            <div id="print-body"></div>
+            
+            <div id="print-footer" style="position: fixed; bottom: 0; right: 0; font-size: 10px; color: #777;">
+                &copy;2025 Neexa System | Secure, Your Future
+            </div>
+        `;
+        
+        // Memasukkan kloningan soal ke dalam wadah kertas
+        printContainer.querySelector('#print-body').appendChild(contentToPrint);
+
+        // 5. Tambahkan Instruksi CSS Khusus Cetak ke Browser
+        const printStyle = document.createElement('style');
+        printStyle.id = 'print-style-khusus';
+        printStyle.innerHTML = `
+            @media print {
+                /* Sembunyikan SEMUA elemen website asli */
+                body > *:not(#print-container-khusus) { display: none !important; }
+                
+                /* Tampilkan dan normalkan kontainer kertas virtual kita */
+                #print-container-khusus { display: block !important; width: 100%; color: #000; background: #fff; }
+
+                /* Hapus background warna warni website */
+                body, html { background: #fff !important; margin: 0; padding: 0; height: auto; }
+
+                /* Pagar Anti Terpotong */
+                .review-question-container { page-break-inside: avoid; margin-bottom: 25px; border-bottom: 1px solid #ddd; padding-bottom: 15px;}
+                .options-container { page-break-inside: avoid; margin-top: 10px; }
+                .pembahasan-box { page-break-inside: avoid; margin-top: 15px; background: #f9f9f9 !important; padding: 15px; border-radius: 8px;}
+                img { max-width: 100% !important; max-height: 250px !important; object-fit: contain; page-break-inside: avoid; }
+                
+                /* Atur Margin Kertas A4 (Lebih lega untuk footer) */
+                @page { margin: 15mm 15mm 20mm 15mm; }
             }
-        }).save().then(() => {
-            // Sukses! Kembalikan tombol
-            btn.innerHTML = originalText;
-            btn.disabled = false;
-        }).catch(err => {
-            console.error("Gagal membuat PDF:", err);
-            alert("Gagal membuat PDF. Pastikan internetmu stabil agar gambar bisa termuat.");
-            btn.innerHTML = originalText;
-            btn.disabled = false;
-        });
-    }
+        `;
+
+        // 6. Sembunyikan kertas ini di layar biasa, pasang ke body
+        printContainer.style.display = 'none';
+        document.body.appendChild(printContainer);
+        document.head.appendChild(printStyle);
+
+        // 7. 🔥 EKSEKUSI CETAK BAWAAN BROWSER 🔥
+        window.print();
+
+        // 8. Hapus kertas virtual segera setelah layar cetak/PDF ditutup
+        setTimeout(() => {
+            printContainer.remove();
+            printStyle.remove();
+        }, 1000);
+    };
 
 </script>
 </body>
