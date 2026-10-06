@@ -808,6 +808,7 @@
             UI.msg3.innerHTML = '<span style="font-weight: bold; font-size: 1.2em;">トークンが作成されました</span><br><span style="font-size: 0.9em; color: #374151;">Token has been created</span>';
         }
 
+
         /**
          * FUNGSI UTAMA PEMBUATAN TOKEN
          */
@@ -825,7 +826,7 @@
 
             const payload = {
                 apiKey: API_KEY,
-                nama: USER_DATA.nama, // <--- TAMBAHKAN BARIS INI! (Wajib)
+                nama: USER_DATA.nama, // <--- BARIS KRUSIAL YANG DITAMBAHKAN
                 email: USER_DATA.email,
                 phone: USER_DATA.phone,
                 product: USER_DATA.product,
