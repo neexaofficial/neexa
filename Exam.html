@@ -2153,7 +2153,7 @@
     
 
     // ====================================================================
-    // FASE 4b: MEMULAI KATEGORI (FIXED: HAPUS google.script.run)
+    // FASE 4b: MEMULAI KATEGORI (PALU GODAM 2: BORONG DI AWAL)
     // ====================================================================
 
     function startCategory(category) {
@@ -2161,24 +2161,69 @@
         quizState.currentCategory = category; 
         updateHeader(); 
 
-        // UI: Tampilkan loading
-        UI.l6QuestionContent.innerHTML = `<p style="text-align: center; font-weight: 600; padding: 20px;">Memuat soal untuk kategori ${category}...</p>`;
-        
         // Sembunyikan menu kategori
         if(UI.l6CategoryNavNew) UI.l6CategoryNavNew.classList.add('hidden');
 
-        // PANGGIL API (FETCH) - BUKAN GOOGLE SCRIPT RUN
+        // CEK BRANKAS LOKAL: Apakah kita sudah memborong soal sebelumnya?
+        if (allQuestionsStore['ALL_DOWNLOADED']) {
+            console.log(`⚡ Mengambil soal ${category} dari brankas lokal (tanpa loading)`);
+            
+            // Pilah soal khusus untuk kategori ini
+            const filteredQuestions = allQuestionsStore['ALL_RAW'].filter(q => normalizeCategoryName(q.category) === category);
+            
+            // Eksekusi tampilan seolah-olah baru turun dari server
+            handleQuestionsReceived({
+                success: true,
+                data: {
+                    questions: filteredQuestions,
+                    timeLimit: quizState.timeLimit // Waktu limit sudah disimpan di awal
+                }
+            });
+            return;
+        }
+
+        // JIKA BELUM DIBORONG (Pertama kali jalan)
+        UI.l6QuestionContent.innerHTML = `<p style="text-align: center; font-weight: 600; padding: 20px;">Mengunduh seluruh soal... (Hanya 1x loading)</p>`;
+        
+        // MINTA SEMUA KATEGORI SEKALIGUS KE SERVER
         apiCall('getQuizQuestions', { 
             apiKey: API_KEY, 
-            category: category, 
+            category: 'ALL', // <--- KUNCI PALU GODAM
             product: currentProduct 
         }).then(response => {
             if (response.success) {
-                handleQuestionsReceived(response); 
+                // SIMPAN SEMUA SOAL KE BRANKAS LOKAL
+                allQuestionsStore['ALL_DOWNLOADED'] = true;
+                allQuestionsStore['ALL_RAW'] = response.data.questions;
+                
+                // Simpan batas waktu global dari server
+                quizState.timeLimit = response.data.timeLimit || 0;
+
+                // Pilah soal khusus untuk kategori pertama (biasanya knowledge)
+                const filteredQuestions = response.data.questions.filter(q => normalizeCategoryName(q.category) === category);
+                
+                // Masukkan ke sistem
+                handleQuestionsReceived({
+                    success: true,
+                    data: {
+                        questions: filteredQuestions,
+                        timeLimit: quizState.timeLimit
+                    }
+                }); 
             } else {
                 handleQuestionsFailed(response.message);
             }
         });
+    }
+
+    // Fungsi kecil untuk menyamakan nama kategori (Cegah error huruf besar/spasi)
+    function normalizeCategoryName(cat) {
+        if (!cat) return '';
+        cat = cat.toLowerCase().trim();
+        if (cat.includes('knowledge')) return 'knowledge';
+        if (cat.includes('reading')) return 'reading';
+        if (cat.includes('listening')) return 'listening';
+        return cat;
     }
 
     function handleQuestionsFailed(errMsg) {
@@ -2526,126 +2571,151 @@ function renderCurrentView() {
 
     /**
      * 1. FUNGSI UTAMA: Mengirim data ke API Netlify/GAS
-     * [REVISI FINAL: Mencegah Data Hilang Saat Submit]
+     * [REVISI PALU GODAM: Tahan di lokal, kirim borongan di akhir]
      */
     function submitCategory() {
-        console.log(`🚀 Mempersiapkan pengiriman untuk kategori: ${quizState.currentCategory}`);
+        console.log(`🚀 Mengamankan jawaban untuk kategori: ${quizState.currentCategory}`);
         
-        // UI Loading
-        if(UI.l6QuestionContent) {
-            UI.l6QuestionContent.innerHTML = `
-                <div style="text-align: center; padding: 30px;">
-                    <p style="font-size: 1.2em; font-weight: bold;">🚀 Mengirim Jawaban...</p>
-                    <p>Mohon tunggu sebentar, jangan tutup halaman ini.</p>
-                </div>`;
-        }
-        
-        // Sembunyikan tombol
         if(UI.l6QuestionNavButtons) UI.l6QuestionNavButtons.classList.add('hidden'); 
         if(UI.l6Footer) UI.l6Footer.classList.add('hidden');
 
-        // --- DEBUGGING DATA SEBELUM KIRIM ---
-        // Kita kunci data saat ini agar tidak berubah meski nanti di-reset
+        // Kunci jawaban saat ini
         const answersCopy = JSON.parse(JSON.stringify(quizState.questionStates));
-        console.log("Data Jawaban (Snapshot):", answersCopy);
+        
+        // Simpan jawaban ini ke dalam memori brankas (Tidak langsung kirim)
+        if (!quizState.globalAnswers) quizState.globalAnswers = {};
+        Object.assign(quizState.globalAnswers, answersCopy); // Gabungkan jawaban
+        
+        // Bersihkan state UI untuk kategori berikutnya
+        quizState.questionStates = {}; 
 
-        // Siapkan Payload
+        // LOGIKA PINDAH KATEGORI LOKAL
+        let nextCategory = null;
+        if (quizState.currentCategory === 'knowledge') {
+            nextCategory = 'reading';
+        } else if (quizState.currentCategory === 'reading') {
+            nextCategory = 'listening';
+        }
+
+        // JIKA MASIH ADA KATEGORI LANJUTAN -> Pindah Langsung Tanpa Loading Server
+        if (nextCategory) {
+            UI.l6QuestionContent.innerHTML = `
+                <div style="text-align:center; padding:40px;">
+                    <h3>Sesi ${quizState.currentCategory.toUpperCase()} Selesai! ✅</h3>
+                    <p>Melanjutkan ke sesi <b>${nextCategory.toUpperCase()}</b> dalam 2 detik...</p>
+                </div>
+            `;
+            setTimeout(() => {
+                UI.l6Footer.classList.remove('hidden');
+                startCategory(nextCategory);
+            }, 2000); 
+            return;
+        }
+
+        // JIKA INI KATEGORI TERAKHIR (LISTENING) -> WAKTUNYA KIRIM SEMUA KE SERVER
+        console.log("🚀 MENGIRIM SELURUH JAWABAN KE SERVER...");
+        UI.l6QuestionContent.innerHTML = `
+            <div style="text-align: center; padding: 30px;">
+                <p style="font-size: 1.2em; font-weight: bold;">🚀 Mengirim Jawaban Akhir...</p>
+                <p>Mohon tunggu sebentar, sedang menilai seluruh kategori.</p>
+                <div style="margin-top:15px; width: 30px; height: 30px; border: 3px solid #ccc; border-top: 3px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+            </div>`;
+
         const payload = {
             apiKey: API_KEY,
             email: USER_DATA.email || 'guest',
             phone: USER_DATA.phone || '000',
             product: currentProduct,
-            category: quizState.currentCategory,
-            answers: answersCopy // Kirim salinan yang aman
+            category: 'ALL', // <-- Kirim dengan status ALL agar dinilai semua
+            answers: quizState.globalAnswers
         };
 
-        // Panggil API
         apiCall('submitCategoryAnswers', payload).then(response => {
             if (response.success) {
-                // RESET STATE SETELAH SUKSES (Agar kategori berikutnya bersih)
-                // Kita reset HANYA SETELAH server bilang "Oke diterima"
-                quizState.questionStates = {}; 
-                
-                handleCategorySubmitSuccess(response.data);
+                // Agar tidak error di fungsi lawas, kita bedah hasil ALL ini
+                // dan format menjadi per kategori agar UI Review bisa membacanya
+                pecahLaporanSkor(response.data);
+                renderFinalScorePage();
             } else {
-                // Jika gagal, kembalikan tampilan
-                if(UI.l6QuestionContent) UI.l6QuestionContent.innerHTML = `<p class="error" style="text-align:center;">Gagal submit: ${response.message}</p>`;
+                UI.l6QuestionContent.innerHTML = `<p class="error" style="text-align:center;">Gagal submit akhir: ${response.message}</p>`;
                 if(UI.l6Footer) UI.l6Footer.classList.remove('hidden'); 
             }
         });
     }
 
-/**
+    // Fungsi kecil untuk memecah laporan 'ALL' dari server menjadi 3 kategori
+    function pecahLaporanSkor(serverData) {
+        // serverData berisi poin, skor total, dan details (seluruh soal)
+        ['knowledge', 'reading', 'listening'].forEach(cat => {
+            // Pilah detail khusus kategori ini berdasarkan bank soal awal
+            const catQuestions = allQuestionsStore['ALL_RAW'].filter(q => normalizeCategoryName(q.category) === cat);
+            let catPoints = 0;
+            let catMaxPoints = 0;
+            let catDetails = {};
+
+            catQuestions.forEach(q => {
+                const soalDetail = serverData.details[q.id];
+                if (soalDetail) {
+                    catDetails[q.id] = soalDetail;
+                    catMaxPoints += soalDetail.poin || 1;
+                    if (soalDetail.isCorrect) catPoints += soalDetail.poin || 1;
+                }
+            });
+
+            const catScore = catMaxPoints > 0 ? (catPoints / catMaxPoints) * 100 : 0;
+            
+            // Simpan laporan ke format lawas agar fungsi renderFinalScorePage() tidak rusak
+            finalScoreReport[cat] = {
+                category: cat,
+                points: catPoints,
+                maxPoints: catMaxPoints,
+                score: catScore,
+                details: catDetails
+            };
+            reviewDataStore[cat] = catDetails;
+        });
+    }
+
+    /**
      * FUNGSI SAPU JAGAT: Dieksekusi hanya saat waktu habis.
-     * Mengirim jawaban saat ini, mengambil teks soal yang terlewat (untuk review), 
-     * dan mengirim lembar KOSONG untuk sisa kategori.
+     * [REVISI PALU GODAM: Kirim 1x Tembakan ALL ke Server]
      */
     async function forceSubmitAllRemaining() {
-        console.log("🔥 AUTO-SUBMIT SEMUA KATEGORI DIMULAI 🔥");
-        const allCategories = ['knowledge', 'reading', 'listening'];
-        const startIndex = allCategories.indexOf(quizState.currentCategory);
+        console.log("🔥 AUTO-SUBMIT SEMUA JAWABAN (WAKTU HABIS) 🔥");
+        
+        UI.l6QuestionContent.innerHTML = `
+            <div style="text-align: center; padding: 40px;">
+                <h2 style="color: #e74c3c;">⏰ WAKTU HABIS!</h2>
+                <p>Menyimpan dan menilai seluruh hasil ujian...</p>
+                <div style="margin-top:15px; width: 30px; height: 30px; border: 3px solid #ccc; border-top: 3px solid #e74c3c; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+            </div>`;
 
-        // Kunci jawaban yang sudah diisi di kategori saat ini
-        const currentAnswersCopy = JSON.parse(JSON.stringify(quizState.questionStates));
+        // Kunci jawaban terakhir yang belum sempat tersimpan
+        const answersCopy = JSON.parse(JSON.stringify(quizState.questionStates));
+        if (!quizState.globalAnswers) quizState.globalAnswers = {};
+        Object.assign(quizState.globalAnswers, answersCopy); 
+        
+        const payload = {
+            apiKey: API_KEY,
+            email: USER_DATA.email || 'guest',
+            phone: USER_DATA.phone || '000',
+            product: currentProduct,
+            category: 'ALL',
+            answers: quizState.globalAnswers
+        };
 
-        for (let i = startIndex; i < allCategories.length; i++) {
-            const cat = allCategories[i];
-            const isCurrent = (i === startIndex);
-            const payloadAnswers = isCurrent ? currentAnswersCopy : {}; // Kosongkan untuk kategori yang belum disentuh
-
-            UI.l6QuestionContent.innerHTML = `
-                <div style="text-align: center; padding: 40px;">
-                    <h2 style="color: #e74c3c;">⏰ WAKTU HABIS!</h2>
-                    <p>Menyimpan hasil <b>${cat.toUpperCase()}</b>...</p>
-                    <div style="margin-top:15px; width: 30px; height: 30px; border: 3px solid #ccc; border-top: 3px solid #e74c3c; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
-                </div>`;
-
-            // ===============================================================
-            // FIX UTAMA: AMBIL TEKS SOAL DARI SERVER JIKA BELUM PERNAH DIBUKA
-            // ===============================================================
-            if (!allQuestionsStore[cat]) {
-                console.log(`Mengambil data soal ${cat} untuk persiapan halaman Review...`);
-                try {
-                    const qResp = await apiCall('getQuizQuestions', { 
-                        apiKey: API_KEY, 
-                        category: cat, 
-                        product: currentProduct 
-                    });
-                    if (qResp.success && qResp.data && qResp.data.questions) {
-                        allQuestionsStore[cat] = qResp.data.questions;
-                    }
-                } catch (e) {
-                    console.error(`Gagal mengambil soal ${cat}`, e);
-                }
+        try {
+            const response = await apiCall('submitCategoryAnswers', payload);
+            if (response.success && response.data) {
+                pecahLaporanSkor(response.data);
+                renderFinalScorePage();
+            } else {
+                UI.l6QuestionContent.innerHTML = `<p class="error" style="text-align:center;">Gagal menilai hasil: ${response.message}</p>`;
             }
-            // ===============================================================
-
-            const payload = {
-                apiKey: API_KEY,
-                email: USER_DATA.email || 'guest',
-                phone: USER_DATA.phone || '000',
-                product: currentProduct,
-                category: cat,
-                answers: payloadAnswers
-            };
-
-            try {
-                // Tunggu respons server per kategori agar Google Sheets tidak meledak/overload
-                const response = await apiCall('submitCategoryAnswers', payload);
-                if (response.success && response.data) {
-                    const cleanCat = cat.toLowerCase().trim();
-                    finalScoreReport[cleanCat] = response.data;
-                    if (response.data.details) {
-                        reviewDataStore[cleanCat] = response.data.details;
-                    }
-                }
-            } catch (err) {
-                console.error("Gagal auto-submit " + cat, err);
-            }
+        } catch (err) {
+            console.error("Gagal auto-submit", err);
+            UI.l6QuestionContent.innerHTML = `<p class="error" style="text-align:center;">Sistem Terputus saat waktu habis. Harap cek koneksi internet.</p>`;
         }
-
-        // Setelah semua kategori tersubmit, tampilkan skor akhir
-        renderFinalScorePage();
     }
 
     /**
@@ -2772,10 +2842,13 @@ function renderCurrentView() {
      */
 
     function showReview(category) {
-    console.log("--- MEMULAI MODE REVIEW ---"); 
+        console.log("--- MEMULAI MODE REVIEW ---"); 
 
-    const reviewDetails = reviewDataStore[category];
-    const questions = allQuestionsStore[category];
+        const reviewDetails = reviewDataStore[category];
+        // AMBIL DARI BANK SOAL BORONGAN, LALU FILTER
+        const questions = allQuestionsStore['ALL_RAW'].filter(q => normalizeCategoryName(q.category) === category);
+
+        // ... Sisa kode showReview() di bawahnya tidak perlu diubah, biarkan sama persis ...
 
     if (!reviewDetails || !questions) {
         alert('Data review tidak ditemukan.');
