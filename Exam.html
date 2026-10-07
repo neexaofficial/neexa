@@ -1872,6 +1872,48 @@
     const GAS_API_URL = "https://script.google.com/macros/s/AKfycbwsOUYBQaOlL8ykEXidRNXs-jqdhwWyVefKSQTgp4148cxbzLlT0wqX5XLocRsWXF28fQ/exec";
     let API_KEY = 'RLNE14EXA10SALE0125'; 
 
+    // ====================================================================
+    // ---> (PASTE KODE CCTV-NYA DI SINI BOS!) <---
+    // CCTV NEEXA: DETEKSI ERROR AUDIO & GAMBAR DI PERANGKAT CUSTOMER
+    // ====================================================================
+    function kirimLogKeServer(level, message, details) {
+        fetch(GAS_API_URL, {  // Menggunakan GAS_API_URL milik Bos
+            method: 'POST',
+            body: JSON.stringify({
+                action: 'logClientActivity',
+                payload: { level: level, message: message, details: details }
+            })
+        }).catch(e => console.error("CCTV gagal mengirim laporan", e));
+    }
+
+    // 1. CCTV AUDIO (Choukai)
+    const originalAudioPlay = HTMLAudioElement.prototype.play;
+    HTMLAudioElement.prototype.play = function() {
+        return originalAudioPlay.call(this).catch(function(error) {
+            console.warn("CCTV: Audio diblokir sistem customer!");
+            kirimLogKeServer('WARN', '[AUDIO_ERROR] Audio Choukai Gagal Diputar', {
+                errorName: error.name,
+                errorMessage: error.message,
+                browser: navigator.userAgent
+            });
+            throw error;
+        });
+    };
+
+    // 2. CCTV GAMBAR (ImgBB / Error Load)
+    window.addEventListener('error', function(e) {
+        if (e.target && e.target.tagName === 'IMG') {
+            console.warn("CCTV: Gambar gagal dimuat - " + e.target.src);
+            kirimLogKeServer('WARN', '[IMAGE_ERROR] Gambar gagal dimuat', {
+                imageSrc: e.target.src,
+                browser: navigator.userAgent
+            });
+        }
+    }, true); 
+    // ====================================================================
+    // ---> (BATAS AKHIR KODE CCTV) <---
+    // ====================================================================
+
     // 2. Baca Parameter URL
     const urlParams = new URLSearchParams(window.location.search);
     
